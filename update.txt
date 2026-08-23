@@ -1,0 +1,214 @@
+I’ll trace the actual Arduino source files and their call sites, then report concrete update needs and functions that appear unused. I’ll start with a read-only inventory and usage scan so the conclusions are tied to the current code, not the backup notes.
+
+Read 
+
+Search complete: Audit Arduino source
+
+Read , lines 1 to 400
+
+Read , lines 1 to 500
+
+Searched codebase for "Arduino source files mainboard mainboard.ino RP2040F RP2040F.ino usbh_helper.h msc_data_logger.ino", 10 results
+
+Searched codebase for "compile/runtime risks Arduino Uno/RP2040F USB host MSC data logger", no results
+
+Searched for files matching `**/mainboard/mainboard.ino`, 1 match
+
+Searched for files matching `**/RP2040F/RP2040F.ino`, 1 match
+
+Searched for files matching `**/RP2040F/usbh_helper.h`, 1 match
+
+Searched for files matching `**/RP2040F/msc_data_logger/msc_data_logger.ino`, 1 match
+
+Searched for text `mainboard/mainboard.ino`, 2 results
+
+Searched for regex `RP2040F.ino|usbh_helper.h|msc_data_logger.ino`, 669 results
+
+No matches found. Your search pattern might be excluded completely by either the search.exclude settings or .*ignore files.
+If you believe that it should have results, you can check into the .*ignore files and the exclude setting (here are some excluded patterns for reference:[**/node_modules,**/bower_components,**/*.code-search]).
+Then if you want to include those files you can call the tool again by setting "includeIgnoredFiles" to true.
+
+Searched for regex `callback|on.*event|ISR|interrupt` (`**/*.ino`), 11 results
+
+Read , lines 1 to 400
+
+Read , lines 1 to 400
+
+Read , lines 800 to 1200
+
+Read , lines 1200 to 1700
+
+Read , lines 1600 to 2200
+
+Read 
+
+Read , lines 232 to 232
+
+Read 
+
+Searched for regex `usbCopyOneFile|usbCopyFolder|usbSelectDestinationFolder|usbRefreshMainboardFolderList|serialinput|d=` (`Electronic_jac` · `RP2040F/RP2040F.ino`), 25 results
+
+Searched for regex `data_log|write_complete_callback|tuh_msc_mount_cb|tuh_umount_cb|USBHost.begin|USBHost.task` (`Electronic_jac` · `RP2040F/msc_data_logger/msc_data_logger.ino`), 16 results
+
+Searched for text `RP2040F.ino`, 659 results
+
+Searched for text `mainboard/mainboard.ino`, 2 results
+
+Searched for text `usbh_helper.h`, 6 results
+
+Searched for files matching `**/mainboard/**`, 5 matches
+
+Searched for files matching `**/RP2040F/**`, 11 matches
+
+Searched for files matching `**/*.ino`, 6 matches
+
+The first pass shows two separate firmware sketches plus a standalone USB logger example, and the main RP2040 sketch contains both active transfer code and older retained test/example code. I’m narrowing the audit now to the function graph and the highest-impact correctness issues, especially protocol framing, bounds, timeout behavior, and callbacks that are invoked by the Arduino/USB framework rather than ordinary code.
+
+Ran terminal command: Get-ChildItem -Recurse -File -Include *.ino,*.h | Select-Object FullName,Length; Write-Output '--- FUNCTION DEFINITIONS ---'; Select-String -Path 'mainboard\mainboard.ino','RP2040F\RP2040F.ino','RP2040F\msc_data_logger\msc_data_logger.ino','RP2040F\usbh_helper.h','RP2040F\msc_data_logger\usbh_helper.h' -Pattern '^\s*(?:static\s+)?(?:bool|byte|char|int|long|void|unsigned\s+long|unsigned\s+int|String|File32|size_t|uint\w+|int\w*|float)\s+[A-Za-z_]\w*\s*\([^;]*\)\s*\{' | ForEach-Object { '{0}:{1}:{2}' -f $_.Path,$_.LineNumber,$_.Line.Trim() }
+
+Ran terminal command: Write-Output '--- MAINBOARD REFERENCES ---'; Select-String -Path 'mainboard\mainboard.ino' -Pattern '\b[A-Za-z_]\w*\s*\(' | ForEach-Object { '{0}:{1}:{2}' -f $_.LineNumber,$_.Line.Trim(),$_.Matches.Value }; Write-Output '--- RP2040 REFERENCES ---'; Select-String -Path 'RP2040F\RP2040F.ino' -Pattern '\b[A-Za-z_]\w*\s*\(' | ForEach-Object { '{0}:{1}:{2}' -f $_.LineNumber,$_.Line.Trim(),$_.Matches.Value }
+
+Ran terminal command: $files = @('mainboard\mainboard.ino','RP2040F\RP2040F.ino','RP2040F\msc_data_logger\msc_data_logger.ino'); foreach ($file in $files) { $lines = (Get-Content $file).Count; Write-Output "$file : $lines lines" }
+
+The source is much larger than the visible snippets: about 3,392 lines on the ESP32 mainboard and 6,388 on the RP2040 controller. One definite defect is already confirmed: the mainboard EEPROM validation condition can never be true (`nc > 32 && nc <= 0`), so an invalid stored card count is never repaired; I’m checking the rest of the control flow before ranking the recommendations.
+
+Ran terminal command: Write-Output '--- TODO/FIXME/ERROR MARKERS ---'; Select-String -Path 'mainboard\mainboard.ino','RP2040F\RP2040F.ino' -Pattern 'TODO|FIXME|BUG|ERROR|WARNING|must add|not used|unused|commented' | Select-Object Path,LineNumber,Line | Format-Table -AutoSize
+
+Ran terminal command: Write-Output '--- MAINBOARD CONTROL/FUNCTION-LIKE LINES ---'; Select-String -Path 'mainboard\mainboard.ino' -Pattern '^\s*(?:(?:static|inline|const)\s+)*(?:void|bool|boolean|byte|char|int|long|short|float|double|unsigned|String|File|ExternalEEPROM|RTC_[A-Za-z0-9_]+)\s+[A-Za-z_]\w*\s*\(' | ForEach-Object { '{0}:{1}' -f $_.LineNumber,$_.Line.Trim() }; Write-Output '--- RP2040 CONTROL/FUNCTION-LIKE LINES ---'; Select-String -Path 'RP2040F\RP2040F.ino' -Pattern '^\s*(?:(?:static|inline|const)\s+)*(?:void|bool|boolean|byte|char|int|long|short|float|double|unsigned|String|File|File32|size_t|uint[0-9]+_t|int[0-9]+_t)\s+[A-Za-z_]\w*\s*\(' | ForEach-Object { '{0}:{1}' -f $_.LineNumber,$_.Line.Trim() }
+
+Ran terminal command: Write-Output '--- SUSPICIOUS ARRAY/BUFFER OPERATIONS ---'; Select-String -Path 'mainboard\mainboard.ino','RP2040F\RP2040F.ino' -Pattern 'filelist\[|folderlist\[|usbFileList\[|usbFolderList\[|data[1234]\[|pickBuf\[|txBuf\[|outdata1\[' | Select-Object Path,LineNumber,Line | Format-Table -AutoSize
+
+Ran terminal command: Write-Output '--- RELEVANT PROTOCOL/TIMEOUT LINES ---'; Select-String -Path 'mainboard\mainboard.ino','RP2040F\RP2040F.ino' -Pattern 'Serial2|millis\(\)|290000|190000|500\)|3000|while \(true\)|goto ' | Select-Object Path,LineNumber,Line | Format-Table -AutoSize
+
+The function inventory found a serious structural issue in the ESP32 sketch: `readfolderlist(File root2)` is defined twice, which should be resolved before behavioral testing because it can prevent compilation. The RP2040 sketch also retains a large legacy menu/file-management layer alongside the newer USB-copy path; I’m separating genuinely reachable functions from framework callbacks and commented-out prototypes now.
+
+Read , lines 2430 to 2585
+
+Read , lines 1170 to 1310
+
+Read , lines 540 to 730
+
+Read , lines 4370 to 4560
+
+Ran terminal command: $files = @('mainboard\mainboard.ino','RP2040F\RP2040F.ino','RP2040F\msc_data_logger\msc_data_logger.ino'); $pattern='^\s*(?:(?:static|inline|const)\s+)*(?:void|bool|boolean|byte|char|int|long|short|float|double|unsigned|String|File|File32|size_t|uint[0-9]+_t|int[0-9]+_t)\s+([A-Za-z_]\w*)\s*\('; foreach ($file in $files) { Write-Output "--- $file ---"; $defs = Select-String -Path $file -Pattern $pattern | ForEach-Object { $_.Matches[0].Groups[1].Value } | Sort-Object -Unique; foreach ($name in $defs) { $count = ([regex]::Matches((Get-Content $file -Raw), "\b$([regex]::Escape($name))\s*\(")).Count; if ($count -le 1) { "$name : $count occurrence(s)" } } }
+
+Ran terminal command: Write-Output '--- MAINBOARD DUPLICATES AND CALLS ---'; $raw = Get-Content 'mainboard\mainboard.ino' -Raw; $names = @('readfolderlist','setupoffolder','opennext','FindHeight','masterint','cationchecking','sendPacket','testfiletesting','plaintestfiletesting','writeFile'); foreach($name in $names){ $hits=Select-String -Path 'mainboard\mainboard.ino' -Pattern "\b$name\s*\("; "$name : $($hits.Count)"; $hits | ForEach-Object { "  $($_.LineNumber): $($_.Line.Trim())" } }
+
+Ran terminal command: Write-Output '--- RP2040 USB STATE ASSIGNMENTS ---'; Select-String -Path 'RP2040F\RP2040F.ino' -Pattern 'usbMountFailed|usbBrowseActive|usbRemovedDuringBrowse|dev_info\[|totalfolder_m|folderlist_m' | Select-Object LineNumber,Line | Format-Table -AutoSize; Write-Output '--- RP2040 SIZE/INDEX CHECKS ---'; Select-String -Path 'RP2040F\RP2040F.ino' -Pattern 'uint8_t (pickBuf|txBuf)|usbFileCount|usbFolderCount|totalfolder|totalfile|fnum|filenum' | Select-Object LineNumber,Line | Format-Table -AutoSize
+
+A closer read corrected one earlier suspicion: the first `readfolderlist` block is inside a comment, so there is only one active definition and no duplicate-definition compile error there. The stronger findings are behavioral: a mount-failure flag is never set, one RP2040 menu function is unreachable, and the USB card buffer can overflow when a file-derived card size exceeds 600 bytes; I’m doing the final reachability and line-reference pass.
+
+Read , lines 3430 to 3875
+
+Read , lines 5120 to 5835
+
+Read , lines 880 to 1015
+
+Read , lines 3180 to 3392
+
+The active call paths are now clear: RP2040 `setup()` enters USB setup and communication initialization, while `loop()` repeatedly enters `runningdesign()` and `mainmenu()`; several older utilities are only definitions or are reachable only from dead menu code. I’m checking diagnostics once, then I’ll give you a prioritized update list and a precise unused-function list, including exceptions for Arduino and TinyUSB callbacks.
+
+Checked , , , no problems found
+
+## Important Updates Needed
+
+1. **Fix invalid EEPROM validation**  
+   In `mainboard.ino:132`, this condition can never be true:
+
+   ```cpp
+   if ((nc > 32) && (nc <= 0))
+   ```
+
+   Use:
+
+   ```cpp
+   if (nc <= 0 || nc > 32)
+   ```
+
+   Also normalize the EEPROM value before using it. An invalid `nc` can produce incorrect buffer sizes and file calculations.
+
+2. **Add bounds checks to folder/file arrays**  
+   `filelist[50]` and `folderlist[50]` are written without checking whether the count has reached 50 in mainboard.ino and mainboard.ino. Add limits before assigning array entries.
+
+3. **Prevent RP2040 USB buffer overflow**  
+   In `RP2040F.ino:1300`, these buffers are fixed at 600 bytes:
+
+   ```cpp
+   uint8_t pickBuf[600];
+   uint8_t txBuf[600];
+   ```
+
+   However, `fileTotalData` is calculated from the file and may exceed 600. Reject files larger than the buffer or use a controlled streaming buffer.
+
+4. **Fix USB mount failure handling**  
+   In `RP2040F.ino:408`, the mount-failure assignment is commented out. Therefore `usbMountFailed` remains false and the error screen in `usbWaitForMount()` is never reached.
+
+5. **Improve file validation**  
+   `RP2040F.ino:957` does not verify that reads succeeded. Also validate:
+   - BMP header signature
+   - height is nonzero
+   - calculated `fileTotalData` is nonzero
+   - calculated size does not exceed buffer limits
+
+6. **Review folder-copy behavior**  
+   `RP2040F.ino:1698` returns failure when the destination folder already exists. This prevents copying missing files into an existing folder, while single-file copying treats an existing folder as valid. The behavior should be made consistent.
+
+7. **Reduce blocking loops and `goto` control flow**  
+   Both firmware files contain many `while (true)` loops and `goto` labels. A disconnected USB device, missing serial response, or keypad failure can leave the controller permanently blocked. Replace the highest-risk loops with state machines or timeout-returning functions.
+
+8. **Reduce debug logging in production**  
+   The RP2040 transfer path prints every packet, byte, retry, and CRC message at 230400 baud. This can affect timing during serial transfers. Add a compile-time debug flag.
+
+9. **Check protocol consistency**  
+   CRC is calculated and transmitted by the RP2040, but the mainboard protocol should be verified to ensure it validates the CRC before writing data. The comment `//must addcrc` remains in `mainboard.ino:102`.
+
+10. **Close or remove legacy code**  
+   The RP2040 sketch combines the current USB-copy system with older SD/menu/test functionality. This makes maintenance and testing difficult. Separate active code from deprecated code or move unused code into an archive sketch.
+
+## Apparently Unused Functions
+
+### Mainboard
+
+- `writeFile()` in `mainboard.ino:3371`
+
+The following are used, but some are only used by older menu/test paths:
+
+- `testfiletesting()`
+- `plaintestfiletesting()`
+- `filecopymenu()`
+- `Deletemenu()`
+- `setupoffolder()`
+
+### RP2040 Controller
+
+These have no ordinary call sites in the active sketch and appear unused:
+
+- `cationchecking()` in `RP2040F.ino:4939`
+- `folderselectioncustom()` in `RP2040F.ino:2862`
+- `initaalfolderselection()` in `RP2040F.ino:2742`
+- `tkit()` in `RP2040F.ino:3844`
+
+Likely legacy/debug-only functions:
+
+- `duplicateFile()`
+- `readTxtFile()`
+- `listTxtFiles()`
+
+`readTxtFile()` and `duplicateFile()` are called only from `listTxtFiles()`, but `listTxtFiles()` itself is not called.
+
+### Functions that are not unused
+
+These are framework entry points or callbacks and should remain:
+
+- `setup()`
+- `loop()`
+- `setup1()`
+- `loop1()`
+- `tuh_mount_cb()`
+- `tuh_umount_cb()`
+- `tuh_msc_mount_cb()`
+- `tuh_msc_umount_cb()`
+- `write_complete_callback()`
+- `usbhost_rtos_task()` when FreeRTOS is enabled
+
+The editor diagnostics report no errors, but that is not a complete Arduino build. The next useful step is to compile both active sketches with the exact ESP32 and RP2040 board settings.
