@@ -951,10 +951,17 @@ void lcd_show_status(int pattern_index) {
            pattern_index + 1, total_picks);
   lcd_print_line(2, line);
 
-  /* lcd_show_status() is only ever called while machine_state == ST_RUN
-   * -- ST_JAM has its own full screen (lcd_show_jam()) -- so this row
-   * is unconditionally the RUN readout now. */
-  snprintf(line, sizeof(line), "RUN  TOTAL %ld", picks_woven);
+  /* Preview the block that starts right after this one ends, not just
+   * "how much woven so far". remaining_in_block = picks still left in
+   * THIS block (0 on the block's last pick), so pattern_index + that +
+   * 1 lands exactly on the first pick of the next block. wrap_pick()
+   * handles the case where the current block is the design's last --
+   * "next" is then the first block of the design repeating. */
+  int remaining_in_block = SHUTTLE_SET_LEN[pattern_index] - SHUTTLE_SET_POS[pattern_index];
+  int next_index = wrap_pick(pattern_index + remaining_in_block + 1);
+  int next_box   = SHUTTLE_PATTERN[next_index];
+  int next_len   = SHUTTLE_SET_LEN[next_index];
+  snprintf(line, sizeof(line), "NEXT BOX %d : %d", next_box, next_len);
   lcd_print_line(3, line);
 }
 
