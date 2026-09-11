@@ -967,15 +967,68 @@ void lcd_show_jam() {
   lcd_print_line(3, "Clear SEN_1 input");
 }
 
+/* ------------------- DATA_1 / DATA_2 COIL PULSE ----------------------
+ * LED_A/LED_B don't just drive indicator LEDs -- on the real box
+ * mechanism they energise a coil that pulls a rod. A coil is not meant
+ * to be held energised continuously (it heats up and can burn out), so
+ * instead of a level that stays HIGH for as long as a box is active,
+ * each pin gets a single COIL_PULSE_MS pulse and then releases itself
+ * automatically -- non-blocking, no delay() in the run path. Re-pulses
+ * every pick that needs it, even back-to-back picks in the same box.
+ * ------------------------------------------------------------------- */
+#define COIL_PULSE_MS 1000UL
+
+uint32_t led_a_release_at = 0;   // 0 = idle (already released); else millis() deadline
+uint32_t led_b_release_at = 0;
+
+void coil_pulse(uint8_t pin, uint32_t &release_at) {
+  digitalWrite(pin, HIGH);
+  release_at = millis() + COIL_PULSE_MS;
+  if (release_at == 0) release_at = 1;   // never let a deadline land on the "idle" sentinel
+}
+
+void coil_release(uint8_t pin, uint32_t &release_at) {
+  digitalWrite(pin, LOW);
+  release_at = 0;
+}
+
+/* Call once per loop() pass, in every state -- a pulse that started
+ * right before a jam still has to release on time. */
+void coil_service() {
+  uint32_t now = millis();
+  if (led_a_release_at != 0 && (int32_t)(now - led_a_release_at) >= 0)
+    coil_release(LED_A, led_a_release_at);
+  if (led_b_release_at != 0 && (int32_t)(now - led_b_release_at) >= 0)
+    coil_release(LED_B, led_b_release_at);
+}
+
+/* -1 = no box driven yet, so the very first update_outputs() call
+ * always pulses for real instead of being skipped as "no change". Reset
+ * to -1 whenever the coils are force-released outside update_outputs()
+ * (the jam handler) so the next update_outputs() re-drives them even if
+ * it's requesting the same box as before the jam. */
+int last_output_box = -1;
+
 void update_outputs(int pattern_index) {
   int box_number = SHUTTLE_PATTERN[pattern_index];
   display_box_number(box_number);
-  switch (box_number) {
-    case 1: digitalWrite(LED_A, LOW);  digitalWrite(LED_B, LOW);  break;
-    case 2: digitalWrite(LED_A, HIGH); digitalWrite(LED_B, LOW);  break;
-    case 3: digitalWrite(LED_A, LOW);  digitalWrite(LED_B, HIGH); break;
-    case 4: digitalWrite(LED_A, HIGH); digitalWrite(LED_B, HIGH); break;
+
+  /* Pulse only on an actual box CHANGE, never per-pick. Picks come
+   * faster than COIL_PULSE_MS apart in real operation, so pulsing every
+   * pick that repeats the same box would just keep re-arming the
+   * deadline before it ever fires -- the pin would stay continuously
+   * HIGH for as long as the box doesn't change, exactly the "held
+   * energised" behaviour the pulse was meant to avoid. */
+  if (box_number != last_output_box) {
+    switch (box_number) {
+      case 1: coil_release(LED_A, led_a_release_at); coil_release(LED_B, led_b_release_at); break;
+      case 2: coil_pulse(LED_A, led_a_release_at);   coil_release(LED_B, led_b_release_at); break;
+      case 3: coil_release(LED_A, led_a_release_at); coil_pulse(LED_B, led_b_release_at);   break;
+      case 4: coil_pulse(LED_A, led_a_release_at);   coil_pulse(LED_B, led_b_release_at);   break;
+    }
+    last_output_box = box_number;
   }
+
   lcd_show_status(pattern_index);
 }
 
@@ -1089,11 +1142,20 @@ void loop() {
     case ST_JAM: hb_pattern(120, 120); break;   // urgent
   }
 
+  /* A pulse already in flight still has to release on time even during
+   * a jam, so this runs unconditionally, every pass. */
+  coil_service();
+
   /* ---- SAFETY IS CHECKED EVERY PASS, IN EVERY STATE ---------------- */
   if (digitalRead(SAFETY_SWITCH) == LOW && machine_state != ST_JAM) {   // POLARITY
     machine_state = ST_JAM;
-    digitalWrite(LED_A, LOW);
-    digitalWrite(LED_B, LOW);
+    coil_release(LED_A, led_a_release_at);
+    coil_release(LED_B, led_b_release_at);
+    /* last_output_box is deliberately left alone -- a jam is not a box
+     * change. If we reset it to -1 here, the next update_outputs() call
+     * (on jam clear) would see box_number != last_output_box and fire a
+     * fresh coil pulse into the SAME box it was already on. Coils pulse
+     * only on an actual box change; jam/clear must not trigger one. */
     display_box_number(-1);          // -> BCD 15 -> blank
     lcd_show_jam();
     mark_run_state_dirty();

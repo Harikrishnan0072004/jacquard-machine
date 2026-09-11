@@ -1,0 +1,23 @@
+{
+  "name": "cd4511",
+  "author": "Hari Engineering",
+  "pins": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "LT",
+    "BI",
+    "LE",
+    "GND",
+    "QG",
+    "QF",
+    "QE",
+    "QD",
+    "QC",
+    "QB",
+    "QA",
+    "VCC"
+  ],
+  "controls": []
+}

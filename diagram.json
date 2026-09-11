@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "author": "Hari Engineering",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-pi-pico",
+      "id": "pico",
+      "top": 0,
+      "left": 0,
+      "attrs": { "builder": "pico-sdk" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led1",
+      "top": -70.8,
+      "left": -44.2,
+      "attrs": { "color": "limegreen" }
+    },
+    { "type": "wokwi-led", "id": "led2", "top": -90, "left": 119, "attrs": { "color": "white" } },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn1",
+      "top": 159.8,
+      "left": -96,
+      "attrs": { "color": "green", "xray": "1" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": -34.45,
+      "left": 9.6,
+      "attrs": { "value": "1000" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": -34.45,
+      "left": 172.8,
+      "attrs": { "value": "1000" }
+    },
+    { "type": "wokwi-slide-switch", "id": "sw1", "top": 81.2, "left": 175.9, "attrs": {} },
+    {
+      "type": "wokwi-7segment",
+      "id": "seg1",
+      "top": -43.02,
+      "left": -618.92,
+      "attrs": { "common": "cathode" }
+    },
+    { "type": "chip-cd4511", "id": "u1", "top": -210.18, "left": -216, "attrs": {} },
+    {
+      "type": "wokwi-resistor",
+      "id": "ra",
+      "top": -63.25,
+      "left": -412.8,
+      "rotate": 90,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "rb",
+      "top": -40,
+      "left": -340,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "rc",
+      "top": -20,
+      "left": -340,
+      "attrs": { "value": "220" }
+    },
+    { "type": "wokwi-resistor", "id": "rd", "top": 0, "left": -340, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "re", "top": 20, "left": -340, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "rf", "top": 40, "left": -340, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "rg", "top": 60, "left": -340, "attrs": { "value": "220" } },
+    {
+      "type": "wokwi-lcd2004",
+      "id": "lcd1",
+      "top": -137.6,
+      "left": 351.2,
+      "attrs": { "pins": "i2c", "address": "0x27" }
+    },
+    { "type": "wokwi-membrane-keypad", "id": "keypad1", "top": -40.4, "left": 581.6, "attrs": {} }
+  ],
+  "connections": [
+    [ "pico:GP0", "$serialMonitor:RX", "", [] ],
+    [ "pico:GP1", "$serialMonitor:TX", "", [] ],
+
+    [ "pico:GND.1", "led1:C", "black", [ "h0" ] ],
+    [ "led1:A", "r1:1", "green", [ "v0" ] ],
+    [ "pico:GP14", "r1:2", "green", [] ],
+
+    [ "led2:A", "r2:1", "green", [ "v0" ] ],
+    [ "r2:2", "pico:GP15", "green", [] ],
+    [ "led2:C", "pico:GND.8", "black", [ "v0" ] ],
+
+    [ "sw1:2", "pico:GND.5", "black", [ "v0" ] ],
+    [ "pico:GP19", "sw1:3", "magenta", [] ],
+
+    [ "pico:GP18", "btn1:1.r", "green", [] ],
+    [
+      "btn1:2.r",
+      "pico:GND.4",
+      "green",
+      [ "h9.8", "v29", "h-124.8", "v-76.8", "h134.4", "v28.8" ]
+    ],
+
+    [ "pico:GP22", "u1:A", "green", [] ],
+    [ "pico:GP26", "u1:B", "green", [] ],
+    [ "pico:GP27", "u1:C", "green", [] ],
+    [ "pico:GP28", "u1:D", "green", [] ],
+
+    [ "pico:3V3", "u1:VCC", "red", [ "v-252.75", "h-179.41" ] ],
+    [ "pico:GND.2", "u1:GND", "black", [] ],
+    [ "pico:3V3", "u1:LT", "red", [ "h-244.8", "v-204.75", "h-38.4" ] ],
+    [ "pico:3V3", "u1:BI", "red", [ "h-264", "v-195.15", "h-19.2" ] ],
+    [ "pico:GND.2", "u1:LE", "black", [ "h-246", "v-204.75" ] ],
+    [ "u1:QA", "ra:1", "green", [] ],
+    [ "ra:2", "seg1:A", "green", [] ],
+    [ "u1:QB", "rb:1", "green", [] ],
+    [ "rb:2", "seg1:B", "green", [] ],
+    [ "u1:QC", "rc:1", "green", [] ],
+    [ "rc:2", "seg1:C", "green", [] ],
+    [ "u1:QD", "rd:1", "green", [] ],
+    [ "rd:2", "seg1:D", "green", [] ],
+    [ "u1:QE", "re:1", "green", [ "v28.8", "h-232.59" ] ],
+    [ "re:2", "seg1:E", "green", [] ],
+    [ "u1:QF", "rf:1", "green", [ "v48", "h-232.59" ] ],
+    [ "rf:2", "seg1:F", "green", [] ],
+    [ "u1:QG", "rg:1", "green", [ "v19.2", "h-232.59" ] ],
+    [ "rg:2", "seg1:G", "green", [] ],
+    [ "seg1:COM.1", "pico:GND.1", "black", [] ],
+    [ "seg1:COM.2", "pico:GND.1", "black", [] ],
+
+    [ "pico:GP6", "lcd1:SDA", "green", [] ],
+    [ "pico:GP7", "lcd1:SCL", "yellow", [] ],
+    [ "pico:3V3", "lcd1:VCC", "red", [] ],
+    [ "pico:GND.3", "lcd1:GND", "black", [] ],
+
+    [ "keypad1:R1", "pico:GP8", "orange", [] ],
+    [ "keypad1:R2", "pico:GP9", "orange", [] ],
+    [ "keypad1:R3", "pico:GP10", "orange", [] ],
+    [ "keypad1:R4", "pico:GP11", "orange", [] ],
+    [ "keypad1:C1", "pico:GP12", "blue", [] ],
+    [ "keypad1:C2", "pico:GP13", "blue", [] ],
+    [ "keypad1:C3", "pico:GP20", "blue", [] ],
+    [ "keypad1:C4", "pico:GP21", "blue", [] ]
+  ],
+  "dependencies": {}
+}
