@@ -5,5 +5,5 @@
   "fqbn": "esp32:esp32:esp32:PartitionScheme=huge_app",
   "hardwareFolders": "/home/harikrishna/.arduino15/packages/esp32/hardware/esp32/3.3.11,/home/harikrishna/.arduino15/packages/esp32/hardware/esp32/3.3.11",
   "otherLibrariesFolders": "/home/harikrishna/Arduino/libraries",
-  "sketchLocation": "/home/harikrishna/jacquard_esp32"
+  "sketchLocation": "/home/harikrishna/esp32_lvgl"
 }
