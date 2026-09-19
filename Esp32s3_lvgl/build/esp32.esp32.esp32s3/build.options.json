@@ -1,0 +1,9 @@
+{
+  "additionalFiles": "../..,../..,../..,../..,../..,../..,../..,../..,../..",
+  "compiler.optimization_flags": "-Os",
+  "customBuildProperties": "",
+  "fqbn": "esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,CDCOnBoot=cdc",
+  "hardwareFolders": "/home/harikrishna/.arduino15/packages/esp32/hardware/esp32/3.3.11,/home/harikrishna/.arduino15/packages/esp32/hardware/esp32/3.3.11",
+  "otherLibrariesFolders": "/home/harikrishna/Arduino/libraries",
+  "sketchLocation": "/home/harikrishna/Esp32s3_lvgl"
+}
